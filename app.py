@@ -3,6 +3,8 @@ import numpy as np
 import pandas as pd
 import joblib
 import urllib.parse
+import time
+import streamlit.components.v1 as components
 
 # ─────────────────────────────────────────────
 # Page config
@@ -635,25 +637,29 @@ if run:
             <div class="section-label">Nearest Hospitals</div>
             """, unsafe_allow_html=True)
 
+
+
             loc = location_input.strip()
             if not loc:
                 st.info("💡 Enter a city or address in the **City / Address** field above and re-run to see nearby hospitals on the map.")
             else:
-                search_query = urllib.parse.quote(f"hospitals near {loc}")
-                embed_url    = f"https://www.google.com/maps?q={search_query}&output=embed"
-                maps_url     = f"https://www.google.com/maps/search/{search_query}"
+                location = urllib.parse.quote(f"hospitals near {loc}")
+                map_html = f"""
+                <iframe
+                    width="100%"
+                    height="450"
+                    style="border:0;border-radius:10px;"
+                    loading="lazy"
+                    allowfullscreen
+                    src="https://www.google.com/maps?q={location}&output=embed">
+                </iframe>
+                """
+                components.html(map_html, height=450)
 
+                maps_url = f"https://www.google.com/maps/search/hospitals+near+{urllib.parse.quote(loc)}"
                 st.markdown(
-                    f'<div class="map-shell">'
-                    f'<iframe src="{embed_url}" width="100%" height="420" '
-                    f'style="border:0;display:block;" allowfullscreen loading="lazy" '
-                    f'referrerpolicy="no-referrer-when-downgrade"></iframe>'
-                    f'</div>',
-                    unsafe_allow_html=True,
-                )
-                st.markdown(
-                    f'<a class="map-cta-btn" href="{maps_url}" target="_blank">'
-                    f'🗺 Open Full Map & Get Directions →'
+                    f'<a class="map-cta-btn" href="{maps_url}" target="_blank">' +
+                    f'🗺 Open Full Map & Get Directions →' +
                     f'</a>',
                     unsafe_allow_html=True,
                 )
