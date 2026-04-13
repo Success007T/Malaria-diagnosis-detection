@@ -436,8 +436,8 @@ st.markdown("""
 @st.cache_resource
 def load_model():
     try:
-        model  = joblib.load("models/model.pkl")
-        scaler = joblib.load("models/scaler.pkl")
+        model  = joblib.load("backend/models/model.pkl")
+        scaler = joblib.load("backend/models/scaler.pkl")
         return model, scaler
     except FileNotFoundError:
         return None, None
