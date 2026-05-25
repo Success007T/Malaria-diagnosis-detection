@@ -1,5 +1,5 @@
 export interface PatientData {
-  age: number;
+  age: any;
   sex: number;
   fever: number;
   headache: number;

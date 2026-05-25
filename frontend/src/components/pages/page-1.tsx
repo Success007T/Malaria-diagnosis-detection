@@ -3,7 +3,7 @@ import { motion } from "framer-motion";
 import SectionLabel from "../SectionLabel";
 
 type Page1Props = {
-  form: any; 
+  form: any;
   handleChange: any;
   location: any;
   setLocation: any;
@@ -51,11 +51,12 @@ export default function Page1({
             </label>
             <input
               type="number"
-              min={0}
+              min={1}
               max={120}
               value={form.age}
               onChange={(e) => handleChange("age", Number(e.target.value))}
               className="field-input"
+              required
             />
           </div>
           <div>
@@ -74,6 +75,7 @@ export default function Page1({
               value={form.sex}
               onChange={(e) => handleChange("sex", Number(e.target.value))}
               className="field-input"
+              required
             >
               <option value={0}>Female</option>
               <option value={1}>Male</option>
@@ -100,11 +102,12 @@ export default function Page1({
           value={location}
           onChange={(e) => setLocation(e.target.value)}
           className="field-input"
+          required
         />
       </Card>
 
       <motion.button
-        onClick={goToSymptoms}
+        onClick={() => form.age && location.trim() && goToSymptoms() || alert("Please fill out all fields")}
         whileHover={{
           scale: 1.015,
           boxShadow: "0 8px 28px rgba(249,115,22,0.38)",

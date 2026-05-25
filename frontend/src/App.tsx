@@ -1,4 +1,5 @@
 import { useState } from "react";
+import ReactDOM from "react-dom";
 import { motion, AnimatePresence } from "motion/react";
 import { predictMalaria } from "./api";
 import type { PatientData } from "./types";
@@ -10,18 +11,78 @@ import Card from "./components/card";
 import SectionLabel from "./components/SectionLabel";
 import Page1 from "./components/pages/page-1";
 // ── Symptom metadata ──────────────────────────────────────────────────────────
-const SYMPTOMS: { key: keyof PatientData; label: string }[] = [
-  { key: "fever", label: "Fever" },
-  { key: "headache", label: "Headache" },
-  { key: "abdominal_pain", label: "Abdominal Pain" },
-  { key: "malaise", label: "Body Malaise" },
-  { key: "dizziness", label: "Dizziness" },
-  { key: "vomiting", label: "Vomiting" },
-  { key: "confusion", label: "Confusion" },
-  { key: "backache", label: "Backache" },
-  { key: "chest_pain", label: "Chest Pain" },
-  { key: "coughing", label: "Coughing" },
-  { key: "joint_pain", label: "Joint Pain" },
+const SYMPTOMS: {
+  key: keyof PatientData;
+  label: string;
+  icon: string;
+  desc: string;
+}[] = [
+  {
+    key: "fever",
+    label: "Fever",
+    icon: "ti-thermometer",
+    desc: "Elevated body temperature above 38°C (100.4°F), often with chills and sweating.",
+  },
+  {
+    key: "headache",
+    label: "Headache",
+    icon: "ti-brain",
+    desc: "Persistent or throbbing pain in the head, temples, or behind the eyes.",
+  },
+  {
+    key: "abdominal_pain",
+    label: "Abdominal Pain",
+    icon: "ti-home-heart",
+    desc: "Cramping or aching discomfort in the stomach or lower abdomen.",
+  },
+  {
+    key: "malaise",
+    label: "Body Malaise",
+    icon: "ti-bed",
+    desc: "General feeling of discomfort, fatigue, or lack of wellbeing.",
+  },
+  {
+    key: "dizziness",
+    label: "Dizziness",
+    icon: "ti-refresh",
+    desc: "Sensation of spinning, lightheadedness, or unsteadiness.",
+  },
+  {
+    key: "vomiting",
+    label: "Vomiting",
+    icon: "ti-mood-sick",
+    desc: "Forceful expulsion of stomach contents; may accompany nausea.",
+  },
+  {
+    key: "confusion",
+    label: "Confusion",
+    icon: "ti-help-circle",
+    desc: "Disorientation or altered mental state. Can indicate severe malaria.",
+  },
+  {
+    key: "backache",
+    label: "Backache",
+    icon: "ti-man",
+    desc: "Pain or stiffness in the lower or upper back region.",
+  },
+  {
+    key: "chest_pain",
+    label: "Chest Pain",
+    icon: "ti-heart",
+    desc: "Tightness, pressure, or sharp pain in the chest area.",
+  },
+  {
+    key: "coughing",
+    label: "Coughing",
+    icon: "ti-wind",
+    desc: "Repeated, forceful expulsion of air from the lungs.",
+  },
+  {
+    key: "joint_pain",
+    label: "Joint Pain",
+    icon: "ti-bone",
+    desc: "Aching or stiffness in joints such as knees, elbows, or wrists.",
+  },
 ];
 
 type Step = "demographics" | "symptoms" | "result";
@@ -29,7 +90,7 @@ type Step = "demographics" | "symptoms" | "result";
 //  Main
 export default function App() {
   const [form, setForm] = useState<PatientData>({
-    age: 25,
+    age: "",
     sex: 1,
     fever: 0,
     headache: 0,
@@ -49,7 +110,11 @@ export default function App() {
   const [loading, setLoading] = useState(false);
   const [step, setStep] = useState<Step>("demographics");
   const [shakeSymptoms, setShakeSymptoms] = useState(false);
-
+  const [hoveredKey, setHoveredKey] = useState<string | null>(null);
+  const [tooltipPos, setTooltipPos] = useState<{
+    top: number;
+    left: number;
+  } | null>(null);
   const symptomCount = SYMPTOMS.reduce(
     (n, s) => n + (form[s.key] as number),
     0,
@@ -344,29 +409,133 @@ export default function App() {
                     gap: "0.5rem",
                   }}
                 >
-                  {SYMPTOMS.map(({ key, label }, i) => (
-                    <motion.div
-                      key={key}
-                      className="sym-pill"
-                      initial={{ opacity: 0, scale: 0.88 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      transition={{
-                        delay: i * 0.04,
-                        duration: 0.25,
-                        ease: "easeOut",
-                      }}
-                    >
-                      <input
-                        type="checkbox"
-                        id={`sym-${key}`}
-                        checked={form[key] === 1}
-                        onChange={(e) =>
-                          handleChange(key, e.target.checked ? 1 : 0)
-                        }
-                      />
-                      <label htmlFor={`sym-${key}`}>{label}</label>
-                    </motion.div>
-                  ))}
+                  {(() => {
+                    const handleMouseEnter = (
+                      e: React.MouseEvent,
+                      key: string,
+                    ) => {
+                      const rect = (
+                        e.currentTarget as HTMLElement
+                      ).getBoundingClientRect();
+                      setTooltipPos({
+                        top: rect.top + window.scrollY - 8,
+                        left: rect.left + rect.width / 2,
+                      });
+                      setHoveredKey(key);
+                    };
+
+                    const handleMouseLeave = () => {
+                      setHoveredKey(null);
+                      setTooltipPos(null);
+                    };
+
+                    const activeSymptom = SYMPTOMS.find(
+                      (s) => s.key === hoveredKey,
+                    );
+
+                    return (
+                      <>
+                        {SYMPTOMS.map(({ key, label, desc, icon }, i) => (
+                          <motion.div
+                            key={key}
+                            className="relative sym-pill"
+                            style={{ overflow: "visible" }}
+                            initial={{ opacity: 0, scale: 0.88 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            transition={{
+                              delay: i * 0.04,
+                              duration: 0.25,
+                              ease: "easeOut",
+                            }}
+                            onMouseEnter={(e) => {
+                              const rect = (
+                                e.currentTarget as HTMLElement
+                              ).getBoundingClientRect();
+                              setTooltipPos({
+                                top: rect.top,
+                                left: rect.left + rect.width / 2,
+                              });
+                              setHoveredKey(key);
+                            }}
+                            onMouseLeave={() => {
+                              setHoveredKey(null);
+                              setTooltipPos(null);
+                            }}
+                          >
+                            <input
+                              type="checkbox"
+                              id={`sym-${key}`}
+                              checked={form[key] === 1}
+                              onChange={(e) =>
+                                handleChange(key, e.target.checked ? 1 : 0)
+                              }
+                            />
+                            <label htmlFor={`sym-${key}`}>{label}</label>
+                          </motion.div>
+                        ))}
+
+                        {/* Portal tooltip */}
+                        {ReactDOM.createPortal(
+                          <AnimatePresence>
+                            {hoveredKey &&
+                              tooltipPos &&
+                              (() => {
+                                const activeSymptom = SYMPTOMS.find(
+                                  (s) => s.key === hoveredKey,
+                                );
+                                if (!activeSymptom) return null;
+                                return (
+                                  <motion.div
+                                    key={hoveredKey}
+                                    initial={{ opacity: 0, y: 6 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    exit={{ opacity: 0, y: 6 }}
+                                    transition={{ duration: 0.15 }}
+                                    style={{
+                                      position: "fixed",
+                                      top: tooltipPos.top - 10,
+                                      left: tooltipPos.left,
+                                      transform: "translate(-50%, -100%)",
+                                      zIndex: 9999,
+                                      pointerEvents: "none",
+                                      width: "13rem",
+                                      background: "rgba(255,255,255,0.96)",
+                                      backdropFilter: "blur(12px)",
+                                      border: "1px solid rgba(231,229,228,0.8)",
+                                      borderRadius: 14,
+                                      boxShadow: "0 10px 30px rgba(0,0,0,0.10)",
+                                      padding: "0.75rem 0.9rem",
+                                    }}
+                                  >
+                                    <p
+                                      style={{
+                                        fontSize: "0.72rem",
+                                        fontWeight: 600,
+                                        color: "#1c1917",
+                                        marginBottom: "0.25rem",
+                                      }}
+                                    >
+                                      {activeSymptom.label}
+                                    </p>
+                                    <p
+                                      style={{
+                                        fontSize: "0.7rem",
+                                        color: "#78716c",
+                                        lineHeight: 1.55,
+                                        margin: 0,
+                                      }}
+                                    >
+                                      {activeSymptom.desc}
+                                    </p>
+                                  </motion.div>
+                                );
+                              })()}
+                          </AnimatePresence>,
+                          document.body,
+                        )}
+                      </>
+                    );
+                  })()}
                 </div>
 
                 {/* Validation notice */}
@@ -485,7 +654,7 @@ export default function App() {
                         }}
                         style={{ display: "inline-block" }}
                       >
-                        ⏳
+                        ⟳
                       </motion.span>
                       Analysing…
                     </>
