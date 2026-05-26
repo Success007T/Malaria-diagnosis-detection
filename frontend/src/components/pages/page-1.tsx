@@ -18,7 +18,7 @@ export default function Page1({
   setLocation,
   goToSymptoms,
   pageVariants,
-}: Page1Props) {
+}: Readonly<Page1Props>) {
   return (
     <motion.div
       key="demographics"
@@ -38,7 +38,7 @@ export default function Page1({
           }}
         >
           <div>
-            <label
+            <label htmlFor="age-input"
               style={{
                 display: "block",
                 fontSize: "0.75rem",
@@ -60,7 +60,7 @@ export default function Page1({
             />
           </div>
           <div>
-            <label
+            <label htmlFor="sex-select"
               style={{
                 display: "block",
                 fontSize: "0.75rem",
@@ -107,7 +107,7 @@ export default function Page1({
       </Card>
 
       <motion.button
-        onClick={() => form.age && location.trim() && goToSymptoms() || alert("Please fill out all fields")}
+        onClick={() => (goToSymptoms())}
         whileHover={{
           scale: 1.015,
           boxShadow: "0 8px 28px rgba(249,115,22,0.38)",

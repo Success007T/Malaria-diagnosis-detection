@@ -1,313 +1,328 @@
 import { useState } from "react";
-import ReactDOM from "react-dom";
 import { motion, AnimatePresence } from "motion/react";
+
 import { predictMalaria } from "./api";
 import type { PatientData } from "./types";
 import Footer from "./components/footer";
-import ConfidenceRing from "./components/confidenceRing";
-import ProbBar from "./components/ProbBar";
 import StepDots from "./components/StepDots";
-import Card from "./components/card";
-import SectionLabel from "./components/SectionLabel";
 import Page1 from "./components/pages/page-1";
-// ── Symptom metadata ──────────────────────────────────────────────────────────
-const SYMPTOMS: {
-  key: keyof PatientData;
-  label: string;
-  icon: string;
-  desc: string;
-}[] = [
+import Page2 from "./components/pages/page-2";
+import Page3 from "./components/pages/page-3";
+
+// ─── Types ────────────────────────────────────────────────────────────────────
+
+type Step = "demographics" | "symptoms" | "result";
+
+type TooltipPosition = {
+  top: number;
+  left: number;
+};
+
+// ─── Constants ────────────────────────────────────────────────────────────────
+
+const ORANGE = "#f97316";
+const ORANGE_DARK = "#ea580c";
+
+const INITIAL_FORM: PatientData = {
+  age: "",
+  sex: 1,
+  fever: 0,
+  headache: 0,
+  abdominal_pain: 0,
+  malaise: 0,
+  dizziness: 0,
+  vomiting: 0,
+  confusion: 0,
+  backache: 0,
+  chest_pain: 0,
+  coughing: 0,
+  joint_pain: 0,
+};
+
+const SYMPTOMS: { key: keyof PatientData; label: string; desc: string }[] = [
   {
     key: "fever",
     label: "Fever",
-    icon: "ti-thermometer",
     desc: "Elevated body temperature above 38°C (100.4°F), often with chills and sweating.",
   },
   {
     key: "headache",
     label: "Headache",
-    icon: "ti-brain",
     desc: "Persistent or throbbing pain in the head, temples, or behind the eyes.",
   },
   {
     key: "abdominal_pain",
     label: "Abdominal Pain",
-    icon: "ti-home-heart",
     desc: "Cramping or aching discomfort in the stomach or lower abdomen.",
   },
   {
     key: "malaise",
     label: "Body Malaise",
-    icon: "ti-bed",
     desc: "General feeling of discomfort, fatigue, or lack of wellbeing.",
   },
   {
     key: "dizziness",
     label: "Dizziness",
-    icon: "ti-refresh",
     desc: "Sensation of spinning, lightheadedness, or unsteadiness.",
   },
   {
     key: "vomiting",
     label: "Vomiting",
-    icon: "ti-mood-sick",
     desc: "Forceful expulsion of stomach contents; may accompany nausea.",
   },
   {
     key: "confusion",
     label: "Confusion",
-    icon: "ti-help-circle",
     desc: "Disorientation or altered mental state. Can indicate severe malaria.",
   },
   {
     key: "backache",
     label: "Backache",
-    icon: "ti-man",
     desc: "Pain or stiffness in the lower or upper back region.",
   },
   {
     key: "chest_pain",
     label: "Chest Pain",
-    icon: "ti-heart",
     desc: "Tightness, pressure, or sharp pain in the chest area.",
   },
   {
     key: "coughing",
     label: "Coughing",
-    icon: "ti-wind",
     desc: "Repeated, forceful expulsion of air from the lungs.",
   },
   {
     key: "joint_pain",
     label: "Joint Pain",
-    icon: "ti-bone",
     desc: "Aching or stiffness in joints such as knees, elbows, or wrists.",
   },
 ];
 
-type Step = "demographics" | "symptoms" | "result";
+const PAGE_VARIANTS = {
+  enter: { opacity: 0, x: 40 },
+  center: { opacity: 1, x: 0 },
+  exit: { opacity: 0, x: -40 },
+};
 
-//  Main
+const SHAKE_DURATION_MS = 600;
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+function getMapUrl(location: string): string {
+  if (!location) return "";
+  return `https://www.google.com/maps?q=hospitals+near+${encodeURIComponent(location)}&output=embed`;
+}
+
+function getMapHref(location: string): string {
+  if (!location) return "#";
+  return `https://www.google.com/maps/search/hospitals+near+${encodeURIComponent(location)}`;
+}
+
+function countSymptoms(form: PatientData): number {
+  return SYMPTOMS.reduce((n, s) => n + (form[s.key] as number), 0);
+}
+
+// ─── Style Constants ──────────────────────────────────────────────────────────
+
+const styles = {
+  root: {
+    minHeight: "100vh",
+    background: "linear-gradient(145deg, #fffbf7 0%, #fff7ed 45%, #ffedd5 100%)",
+    fontFamily: "'DM Sans', sans-serif",
+    position: "relative",
+    overflowX: "hidden",
+  } as React.CSSProperties,
+
+  blobTopRight: {
+    position: "fixed",
+    top: -130,
+    right: -130,
+    width: 420,
+    height: 420,
+    borderRadius: "50%",
+    background: "radial-gradient(circle, rgba(251,146,60,0.16) 0%, transparent 70%)",
+    pointerEvents: "none",
+  } as React.CSSProperties,
+
+  blobBottomLeft: {
+    position: "fixed",
+    bottom: -90,
+    left: -90,
+    width: 360,
+    height: 360,
+    borderRadius: "50%",
+    background: "radial-gradient(circle, rgba(253,186,116,0.18) 0%, transparent 70%)",
+    pointerEvents: "none",
+  } as React.CSSProperties,
+
+  pageWrapper: {
+    maxWidth: 640,
+    margin: "0 auto",
+    padding: "clamp(1.5rem, 5vw, 3rem) clamp(1rem, 4vw, 1.5rem)",
+    position: "relative",
+    zIndex: 10,
+  } as React.CSSProperties,
+
+  wordmark: {
+    display: "flex",
+    alignItems: "center",
+    gap: "0.6rem",
+    marginBottom: "1.75rem",
+  } as React.CSSProperties,
+
+  logoIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    background: `linear-gradient(135deg, ${ORANGE}, ${ORANGE_DARK})`,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    fontSize: "1.1rem",
+    boxShadow: "0 4px 14px rgba(249,115,22,0.35)",
+  } as React.CSSProperties,
+
+  logoText: {
+    fontFamily: "'Fraunces', serif",
+    fontWeight: 900,
+    fontSize: "1.15rem",
+    color: "#1c1917",
+  } as React.CSSProperties,
+
+  logoBadge: {
+    marginLeft: "auto",
+    fontSize: "0.67rem",
+    fontWeight: 600,
+    letterSpacing: "0.06em",
+    color: ORANGE_DARK,
+    background: `rgba(249,115,22,0.1)`,
+    border: `1px solid rgba(249,115,22,0.22)`,
+    padding: "0.2rem 0.7rem",
+    borderRadius: 999,
+  } as React.CSSProperties,
+
+  headlineWrapper: {
+    marginBottom: "1.75rem",
+  } as React.CSSProperties,
+
+  headline: {
+    fontFamily: "'Fraunces', serif",
+    fontWeight: 900,
+    fontSize: "clamp(1.75rem, 6vw, 2.4rem)",
+    color: "#1c1917",
+    lineHeight: 1.1,
+    letterSpacing: "-0.03em",
+    marginBottom: "0.4rem",
+  } as React.CSSProperties,
+
+  headlineAccent: {
+    color: ORANGE,
+    fontStyle: "italic",
+  } as React.CSSProperties,
+
+  subheadline: {
+    fontSize: "0.87rem",
+    color: "#78716c",
+    fontWeight: 300,
+    lineHeight: 1.65,
+  } as React.CSSProperties,
+} as const;
+
+// ─── Main Component ───────────────────────────────────────────────────────────
+
 export default function App() {
-  const [form, setForm] = useState<PatientData>({
-    age: "",
-    sex: 1,
-    fever: 0,
-    headache: 0,
-    abdominal_pain: 0,
-    malaise: 0,
-    dizziness: 0,
-    vomiting: 0,
-    confusion: 0,
-    backache: 0,
-    chest_pain: 0,
-    coughing: 0,
-    joint_pain: 0,
-  });
-
+  const [form, setForm] = useState<PatientData>(INITIAL_FORM);
   const [location, setLocation] = useState("");
   const [result, setResult] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [step, setStep] = useState<Step>("demographics");
   const [shakeSymptoms, setShakeSymptoms] = useState(false);
-  const [hoveredKey, setHoveredKey] = useState<string | null>(null);
-  const [tooltipPos, setTooltipPos] = useState<{
-    top: number;
-    left: number;
-  } | null>(null);
-  const symptomCount = SYMPTOMS.reduce(
-    (n, s) => n + (form[s.key] as number),
-    0,
-  );
 
-  const handleChange = (key: keyof PatientData, value: number) =>
+  const symptomCount = countSymptoms(form);
+
+  // ── Handlers ────────────────────────────────────────────────────────────────
+
+  function handleChange(key: keyof PatientData, value: number) {
     setForm((prev) => ({ ...prev, [key]: value }));
+  }
 
-  const goToSymptoms = () => setStep("symptoms");
+  function goToSymptoms() {
+    setStep("symptoms");
+  }
 
-  const handleSubmit = async () => {
+  function handleReset() {
+    setStep("demographics");
+    setResult(null);
+  }
+
+  async function handleSubmit() {
     if (symptomCount === 0) {
       setShakeSymptoms(true);
-      setTimeout(() => setShakeSymptoms(false), 600);
+      setTimeout(() => setShakeSymptoms(false), SHAKE_DURATION_MS);
       return;
     }
+
     setLoading(true);
     setResult(null);
+
     try {
       const res = await predictMalaria(form);
       setResult(res);
       setStep("result");
     } catch {
       alert("Backend error — make sure the FastAPI server is running.");
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
-  };
+  }
 
-  const handleReset = () => {
-    setStep("demographics");
-    setResult(null);
-  };
+  // ── Derived values ───────────────────────────────────────────────────────────
 
   const positive = result?.prediction === 1;
   const posProb = (result?.probabilities?.positive ?? 0) * 100;
   const negProb = (result?.probabilities?.negative ?? 0) * 100;
   const confPct = (result?.confidence ?? 0) * 100;
+  const mapUrl = getMapUrl(location);
+  const mapHref = getMapHref(location);
 
-  const mapUrl = location
-    ? `https://www.google.com/maps?q=hospitals+near+${encodeURIComponent(location)}&output=embed`
-    : "";
-  const mapHref = location
-    ? `https://www.google.com/maps/search/hospitals+near+${encodeURIComponent(location)}`
-    : "#";
-
-  const pageVariants = {
-    enter: { opacity: 0, x: 40 },
-    center: { opacity: 1, x: 0 },
-    exit: { opacity: 0, x: -40 },
-  };
+  // ── Render ───────────────────────────────────────────────────────────────────
 
   return (
-    <div
-      style={{
-        minHeight: "100vh",
-        background:
-          "linear-gradient(145deg, #fffbf7 0%, #fff7ed 45%, #ffedd5 100%)",
-        fontFamily: "'DM Sans', sans-serif",
-        position: "relative",
-        overflowX: "hidden",
-      }}
-    >
-      {/* Decorative blobs */}
-      <div
-        aria-hidden
-        style={{
-          position: "fixed",
-          top: -130,
-          right: -130,
-          width: 420,
-          height: 420,
-          borderRadius: "50%",
-          background:
-            "radial-gradient(circle, rgba(251,146,60,0.16) 0%, transparent 70%)",
-          pointerEvents: "none",
-        }}
-      />
-      <div
-        aria-hidden
-        style={{
-          position: "fixed",
-          bottom: -90,
-          left: -90,
-          width: 360,
-          height: 360,
-          borderRadius: "50%",
-          background:
-            "radial-gradient(circle, rgba(253,186,116,0.18) 0%, transparent 70%)",
-          pointerEvents: "none",
-        }}
-      />
+    <div style={styles.root}>
+      {/* ── Decorative blobs ── */}
+      <div aria-hidden style={styles.blobTopRight} />
+      <div aria-hidden style={styles.blobBottomLeft} />
 
-      {/* Page wrapper */}
-      <div
-        style={{
-          maxWidth: 640,
-          margin: "0 auto",
-          padding: "clamp(1.5rem, 5vw, 3rem) clamp(1rem, 4vw, 1.5rem)",
-          position: "relative",
-          zIndex: 10,
-        }}
-      >
-        {/* Wordmark */}
+      <div style={styles.pageWrapper}>
+        {/* ── Wordmark ── */}
         <motion.div
           initial={{ opacity: 0, y: -14 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.45 }}
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: "0.6rem",
-            marginBottom: "1.75rem",
-          }}
+          style={styles.wordmark}
         >
-          <div
-            style={{
-              width: 36,
-              height: 36,
-              borderRadius: 10,
-              background: "linear-gradient(135deg, #f97316, #ea580c)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              fontSize: "1.1rem",
-              boxShadow: "0 4px 14px rgba(249,115,22,0.35)",
-            }}
-          >
-            🦟
-          </div>
-          <span
-            style={{
-              fontFamily: "'Fraunces', serif",
-              fontWeight: 900,
-              fontSize: "1.15rem",
-              color: "#1c1917",
-            }}
-          >
-            MalariaDx
-          </span>
-          <span
-            style={{
-              marginLeft: "auto",
-              fontSize: "0.67rem",
-              fontWeight: 600,
-              letterSpacing: "0.06em",
-              color: "#ea580c",
-              background: "rgba(249,115,22,0.1)",
-              border: "1px solid rgba(249,115,22,0.22)",
-              padding: "0.2rem 0.7rem",
-              borderRadius: 999,
-            }}
-          >
-            XGBoost · AUC 0.9984
-          </span>
+          <div style={styles.logoIcon}>🦟</div>
+          <span style={styles.logoText}>MalariaDx</span>
+          <span style={styles.logoBadge}>XGBoost · AUC 0.9984</span>
         </motion.div>
 
-        {/* Headline */}
+        {/* ── Headline ── */}
         <motion.div
           initial={{ opacity: 0, y: 18 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.45, delay: 0.1 }}
-          style={{ marginBottom: "1.75rem" }}
+          style={styles.headlineWrapper}
         >
-          <h1
-            style={{
-              fontFamily: "'Fraunces', serif",
-              fontWeight: 900,
-              fontSize: "clamp(1.75rem, 6vw, 2.4rem)",
-              color: "#1c1917",
-              lineHeight: 1.1,
-              letterSpacing: "-0.03em",
-              marginBottom: "0.4rem",
-            }}
-          >
+          <h1 style={styles.headline}>
             Symptom-Based
             <br />
-            <span style={{ color: "#f97316", fontStyle: "italic" }}>
-              Diagnosis
-            </span>
+            <span style={styles.headlineAccent}>Diagnosis</span>
           </h1>
-          <p
-            style={{
-              fontSize: "0.87rem",
-              color: "#78716c",
-              fontWeight: 300,
-              lineHeight: 1.65,
-            }}
-          >
+          <p style={styles.subheadline}>
             AI-assisted malaria prediction · For clinical decision support only.
           </p>
         </motion.div>
 
-        {/* Step indicator */}
+        {/* ── Step indicator ── */}
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
@@ -318,671 +333,54 @@ export default function App() {
 
         {/* ── Pages ── */}
         <AnimatePresence mode="wait">
-          {/* ══ PAGE 1: Demographics ══ */}
           {step === "demographics" && (
             <Page1
+              key="demographics"
               form={form}
               handleChange={handleChange}
               location={location}
               setLocation={setLocation}
               goToSymptoms={goToSymptoms}
-              pageVariants={pageVariants}
-            ></Page1>
+              pageVariants={PAGE_VARIANTS}
+            />
           )}
 
-          {/* ══ PAGE 2: Symptoms ══ */}
           {step === "symptoms" && (
-            <motion.div
+            <Page2
               key="symptoms"
-              variants={pageVariants}
-              initial="enter"
-              animate="center"
-              exit="exit"
-              transition={{ duration: 0.35, ease: "easeInOut" }}
-            >
-              <Card>
-                <div
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                    marginBottom: "1rem",
-                    flexWrap: "wrap",
-                    gap: "0.5rem",
-                  }}
-                >
-                  <SectionLabel num="03" text="Presenting Symptoms" />
-                  <AnimatePresence mode="wait">
-                    {symptomCount > 0 ? (
-                      <motion.span
-                        key="count"
-                        initial={{ scale: 0.7, opacity: 0 }}
-                        animate={{ scale: 1, opacity: 1 }}
-                        exit={{ scale: 0.7, opacity: 0 }}
-                        style={{
-                          fontSize: "0.72rem",
-                          fontWeight: 600,
-                          color: symptomCount >= 4 ? "#c2410c" : "#d97706",
-                          background:
-                            symptomCount >= 4
-                              ? "rgba(194,65,12,0.1)"
-                              : "rgba(217,119,6,0.1)",
-                          border: `1px solid ${
-                            symptomCount >= 4
-                              ? "rgba(194,65,12,0.2)"
-                              : "rgba(217,119,6,0.2)"
-                          }`,
-                          padding: "0.2rem 0.65rem",
-                          borderRadius: 999,
-                        }}
-                      >
-                        {symptomCount} selected
-                      </motion.span>
-                    ) : (
-                      <motion.span
-                        key="none"
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        exit={{ opacity: 0 }}
-                        style={{
-                          fontSize: "0.72rem",
-                          fontWeight: 500,
-                          color: "#c2410c",
-                          background: "rgba(239,68,68,0.08)",
-                          border: "1px solid rgba(239,68,68,0.2)",
-                          padding: "0.2rem 0.65rem",
-                          borderRadius: 999,
-                        }}
-                      >
-                        Select at least 1
-                      </motion.span>
-                    )}
-                  </AnimatePresence>
-                </div>
-
-                <div
-                  className={`sym-grid${shakeSymptoms ? " shake" : ""}`}
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns:
-                      "repeat(auto-fill, minmax(155px, 1fr))",
-                    gap: "0.5rem",
-                  }}
-                >
-                  {(() => {
-                    const handleMouseEnter = (
-                      e: React.MouseEvent,
-                      key: string,
-                    ) => {
-                      const rect = (
-                        e.currentTarget as HTMLElement
-                      ).getBoundingClientRect();
-                      setTooltipPos({
-                        top: rect.top + window.scrollY - 8,
-                        left: rect.left + rect.width / 2,
-                      });
-                      setHoveredKey(key);
-                    };
-
-                    const handleMouseLeave = () => {
-                      setHoveredKey(null);
-                      setTooltipPos(null);
-                    };
-
-                    const activeSymptom = SYMPTOMS.find(
-                      (s) => s.key === hoveredKey,
-                    );
-
-                    return (
-                      <>
-                        {SYMPTOMS.map(({ key, label, desc, icon }, i) => (
-                          <motion.div
-                            key={key}
-                            className="relative sym-pill"
-                            style={{ overflow: "visible" }}
-                            initial={{ opacity: 0, scale: 0.88 }}
-                            animate={{ opacity: 1, scale: 1 }}
-                            transition={{
-                              delay: i * 0.04,
-                              duration: 0.25,
-                              ease: "easeOut",
-                            }}
-                            onMouseEnter={(e) => {
-                              const rect = (
-                                e.currentTarget as HTMLElement
-                              ).getBoundingClientRect();
-                              setTooltipPos({
-                                top: rect.top,
-                                left: rect.left + rect.width / 2,
-                              });
-                              setHoveredKey(key);
-                            }}
-                            onMouseLeave={() => {
-                              setHoveredKey(null);
-                              setTooltipPos(null);
-                            }}
-                          >
-                            <input
-                              type="checkbox"
-                              id={`sym-${key}`}
-                              checked={form[key] === 1}
-                              onChange={(e) =>
-                                handleChange(key, e.target.checked ? 1 : 0)
-                              }
-                            />
-                            <label htmlFor={`sym-${key}`}>{label}</label>
-                          </motion.div>
-                        ))}
-
-                        {/* Portal tooltip */}
-                        {ReactDOM.createPortal(
-                          <AnimatePresence>
-                            {hoveredKey &&
-                              tooltipPos &&
-                              (() => {
-                                const activeSymptom = SYMPTOMS.find(
-                                  (s) => s.key === hoveredKey,
-                                );
-                                if (!activeSymptom) return null;
-                                return (
-                                  <motion.div
-                                    key={hoveredKey}
-                                    initial={{ opacity: 0, y: 6 }}
-                                    animate={{ opacity: 1, y: 0 }}
-                                    exit={{ opacity: 0, y: 6 }}
-                                    transition={{ duration: 0.15 }}
-                                    style={{
-                                      position: "fixed",
-                                      top: tooltipPos.top - 10,
-                                      left: tooltipPos.left,
-                                      transform: "translate(-50%, -100%)",
-                                      zIndex: 9999,
-                                      pointerEvents: "none",
-                                      width: "13rem",
-                                      background: "rgba(255,255,255,0.96)",
-                                      backdropFilter: "blur(12px)",
-                                      border: "1px solid rgba(231,229,228,0.8)",
-                                      borderRadius: 14,
-                                      boxShadow: "0 10px 30px rgba(0,0,0,0.10)",
-                                      padding: "0.75rem 0.9rem",
-                                    }}
-                                  >
-                                    <p
-                                      style={{
-                                        fontSize: "0.72rem",
-                                        fontWeight: 600,
-                                        color: "#1c1917",
-                                        marginBottom: "0.25rem",
-                                      }}
-                                    >
-                                      {activeSymptom.label}
-                                    </p>
-                                    <p
-                                      style={{
-                                        fontSize: "0.7rem",
-                                        color: "#78716c",
-                                        lineHeight: 1.55,
-                                        margin: 0,
-                                      }}
-                                    >
-                                      {activeSymptom.desc}
-                                    </p>
-                                  </motion.div>
-                                );
-                              })()}
-                          </AnimatePresence>,
-                          document.body,
-                        )}
-                      </>
-                    );
-                  })()}
-                </div>
-
-                {/* Validation notice */}
-                <AnimatePresence>
-                  {shakeSymptoms && (
-                    <motion.div
-                      initial={{ opacity: 0, y: -6 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0 }}
-                      style={{
-                        marginTop: "0.75rem",
-                        padding: "0.65rem 0.9rem",
-                        background: "rgba(239,68,68,0.08)",
-                        border: "1px solid rgba(239,68,68,0.25)",
-                        borderRadius: 8,
-                        fontSize: "0.8rem",
-                        color: "#dc2626",
-                        display: "flex",
-                        alignItems: "center",
-                        gap: "0.4rem",
-                      }}
-                    >
-                      Please select at least one symptom before running the
-                      diagnosis.
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </Card>
-
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "1fr 2fr",
-                  gap: "0.6rem",
-                }}
-              >
-                <motion.button
-                  onClick={() => setStep("demographics")}
-                  whileHover={{ scale: 1.01 }}
-                  whileTap={{ scale: 0.98 }}
-                  style={{
-                    padding: "0.85rem",
-                    background: "transparent",
-                    border: "1.5px solid #e8ddd2",
-                    borderRadius: 12,
-                    color: "#78716c",
-                    fontFamily: "'DM Sans', sans-serif",
-                    fontSize: "0.875rem",
-                    fontWeight: 500,
-                    cursor: "pointer",
-                    transition: "border-color 0.2s, color 0.2s",
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.borderColor = "#f97316";
-                    e.currentTarget.style.color = "#f97316";
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.borderColor = "#e8ddd2";
-                    e.currentTarget.style.color = "#78716c";
-                  }}
-                >
-                  ← Back
-                </motion.button>
-
-                <motion.button
-                  onClick={handleSubmit}
-                  disabled={loading}
-                  whileHover={
-                    !loading
-                      ? {
-                          scale: 1.015,
-                          boxShadow: "0 8px 28px rgba(249,115,22,0.38)",
-                        }
-                      : {}
-                  }
-                  whileTap={!loading ? { scale: 0.985 } : {}}
-                  style={{
-                    padding: "0.85rem 1.5rem",
-                    background: loading
-                      ? "#fcd9a8"
-                      : symptomCount === 0
-                        ? "#e8ddd2"
-                        : "linear-gradient(135deg, #f97316, #ea580c)",
-                    color: loading
-                      ? "#c2410c"
-                      : symptomCount === 0
-                        ? "#a8a29e"
-                        : "#fff",
-                    border: "none",
-                    borderRadius: 12,
-                    fontFamily: "'Fraunces', serif",
-                    fontSize: "0.95rem",
-                    fontWeight: 700,
-                    cursor:
-                      loading || symptomCount === 0 ? "not-allowed" : "pointer",
-                    letterSpacing: "0.02em",
-                    boxShadow:
-                      symptomCount > 0 && !loading
-                        ? "0 4px 18px rgba(249,115,22,0.28)"
-                        : "none",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    gap: "0.45rem",
-                    transition: "background 0.2s, box-shadow 0.2s",
-                  }}
-                >
-                  {loading ? (
-                    <>
-                      <motion.span
-                        animate={{ rotate: 360 }}
-                        transition={{
-                          duration: 1.0,
-                          repeat: Infinity,
-                          ease: "linear",
-                        }}
-                        style={{ display: "inline-block" }}
-                      >
-                        ⟳
-                      </motion.span>
-                      Analysing…
-                    </>
-                  ) : (
-                    "Run Diagnosis →"
-                  )}
-                </motion.button>
-              </div>
-            </motion.div>
+              form={form}
+              handleChange={handleChange}
+              symptomCount={symptomCount}
+              loading={loading}
+              shakeSymptoms={shakeSymptoms}
+              handleSubmit={handleSubmit}
+              goBack={() => setStep("demographics")}
+              pageVariants={PAGE_VARIANTS}
+              symptoms={SYMPTOMS}
+            />
           )}
 
-          {/* ══ PAGE 3: Result ══ */}
           {step === "result" && result && (
-            <motion.div
+            <Page3
               key="result"
-              variants={pageVariants}
-              initial="enter"
-              animate="center"
-              exit="exit"
-              transition={{ duration: 0.35, ease: "easeInOut" }}
-            >
-              {/* Hero result card */}
-              <motion.div
-                initial={{ scale: 0.95, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                transition={{ duration: 0.4, ease: [0.34, 1.56, 0.64, 1] }}
-                style={{
-                  background: positive
-                    ? "linear-gradient(135deg, #fff7ed, #ffedd5)"
-                    : "linear-gradient(135deg, #f0fdf4, #dcfce7)",
-                  border: `2px solid ${positive ? "#fed7aa" : "#bbf7d0"}`,
-                  borderLeft: `5px solid ${positive ? "#f97316" : "#16a34a"}`,
-                  borderRadius: 16,
-                  padding: "clamp(1.25rem, 4vw, 2rem)",
-                  marginBottom: "0.875rem",
-                  boxShadow: positive
-                    ? "0 8px 36px rgba(249,115,22,0.16)"
-                    : "0 8px 36px rgba(22,163,74,0.12)",
-                }}
-              >
-                <div
-                  className="result-hero-inner"
-                  style={{
-                    display: "flex",
-                    alignItems: "flex-start",
-                    justifyContent: "space-between",
-                    gap: "1rem",
-                    flexWrap: "wrap",
-                  }}
-                >
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <p
-                      style={{
-                        fontSize: "0.67rem",
-                        fontWeight: 700,
-                        letterSpacing: "0.14em",
-                        textTransform: "uppercase",
-                        color: positive ? "#f97316" : "#16a34a",
-                        marginBottom: "0.4rem",
-                      }}
-                    >
-                      Diagnosis Result
-                    </p>
-                    <h2
-                      style={{
-                        fontFamily: "'Fraunces', serif",
-                        fontWeight: 900,
-                        fontSize: "clamp(1.4rem, 5vw, 1.9rem)",
-                        letterSpacing: "-0.03em",
-                        color: positive ? "#c2410c" : "#15803d",
-                        marginBottom: "0.35rem",
-                      }}
-                    >
-                      {positive ? "⚠ Malaria Positive" : "✓ Malaria Negative"}
-                    </h2>
-                    <p
-                      style={{
-                        fontSize: "0.84rem",
-                        color: "#78716c",
-                        fontWeight: 300,
-                        lineHeight: 1.55,
-                        maxWidth: 300,
-                      }}
-                    >
-                      {positive
-                        ? "Recommend immediate clinical review and laboratory confirmation."
-                        : "No malaria detected. Monitor if symptoms persist or worsen."}
-                    </p>
-                    <div
-                      style={{
-                        display: "flex",
-                        gap: "0.4rem",
-                        marginTop: "0.9rem",
-                        flexWrap: "wrap",
-                      }}
-                    >
-                      {[
-                        {
-                          label: `${symptomCount} symptom${symptomCount !== 1 ? "s" : ""}`,
-                          color: positive ? "#f97316" : "#16a34a",
-                        },
-                        {
-                          label: form.age <= 18 ? "Pediatric" : "Adult",
-                          color: "#78716c",
-                        },
-                        {
-                          label: form.sex === 0 ? "Female" : "Male",
-                          color: "#78716c",
-                        },
-                      ].map(({ label, color }) => (
-                        <span
-                          key={label}
-                          style={{
-                            fontSize: "0.71rem",
-                            fontWeight: 600,
-                            color,
-                            background: "rgba(255,255,255,0.72)",
-                            border: "1px solid rgba(0,0,0,0.08)",
-                            padding: "0.22rem 0.65rem",
-                            borderRadius: 999,
-                          }}
-                        >
-                          {label}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                  <div className="result-ring">
-                    <ConfidenceRing pct={confPct} positive={positive} />
-                  </div>
-                </div>
-              </motion.div>
-
-              {/* Probability breakdown */}
-              <Card>
-                <SectionLabel num="—" text="Probability Breakdown" />
-                <p
-                  style={{
-                    fontSize: "0.75rem",
-                    color: "#a8a29e",
-                    marginBottom: "0.85rem",
-                    marginTop: "-0.5rem",
-                  }}
-                >
-                  Hover over each bar for details.
-                </p>
-                <ProbBar
-                  label="Negative (No Malaria)"
-                  pct={negProb}
-                  color="#16a34a"
-                  delay={0.1}
-                />
-                <ProbBar
-                  label="Positive (Malaria)"
-                  pct={posProb}
-                  color="#f97316"
-                  delay={0.22}
-                />
-              </Card>
-
-              {/* Disclaimer */}
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ delay: 0.4 }}
-                style={{
-                  background: "rgba(255,255,255,0.6)",
-                  border: "1.5px solid #f0e9e1",
-                  borderRadius: 12,
-                  padding: "0.85rem 1rem",
-                  marginBottom: "0.875rem",
-                  display: "flex",
-                  gap: "0.55rem",
-                  alignItems: "flex-start",
-                }}
-              >
-                <p
-                  style={{
-                    fontSize: "0.77rem",
-                    color: "#78716c",
-                    lineHeight: 1.6,
-                    margin: 0,
-                  }}
-                >
-                  AI-based prediction for clinical decision support only. Does
-                  not replace professional medical advice. Confirm with
-                  laboratory testing.
-                </p>
-              </motion.div>
-
-              {/* Hospital map — positive only */}
-              <AnimatePresence>
-                {positive && (
-                  <motion.div
-                    initial={{ opacity: 0, y: 18 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0 }}
-                    transition={{ delay: 0.45, duration: 0.4 }}
-                    style={{ marginBottom: "0.875rem" }}
-                  >
-                    <div
-                      style={{
-                        background: "rgba(254,242,220,0.85)",
-                        border: "1.5px solid #fed7aa",
-                        borderRadius: 16,
-                        padding: "clamp(1rem, 4vw, 1.5rem)",
-                      }}
-                    >
-                      <p
-                        style={{
-                          fontSize: "0.67rem",
-                          fontWeight: 700,
-                          letterSpacing: "0.14em",
-                          textTransform: "uppercase",
-                          color: "#f97316",
-                          marginBottom: "0.35rem",
-                        }}
-                      >
-                        Nearest Hospitals
-                      </p>
-                      <p
-                        style={{
-                          fontSize: "0.8rem",
-                          color: "#c2410c",
-                          fontWeight: 500,
-                          marginBottom: "1rem",
-                        }}
-                      >
-                        Urgent: Refer this patient to the nearest hospital
-                        immediately.
-                      </p>
-                      {location ? (
-                        <>
-                          <div
-                            style={{
-                              borderRadius: 10,
-                              overflow: "hidden",
-                              border: "1.5px solid #fed7aa",
-                            }}
-                          >
-                            <iframe
-                              src={mapUrl}
-                              width="100%"
-                              height="300"
-                              style={{ border: 0, display: "block" }}
-                              loading="lazy"
-                              referrerPolicy="no-referrer-when-downgrade"
-                            />
-                          </div>
-                          <a
-                            href={mapHref}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            style={{
-                              display: "block",
-                              textAlign: "center",
-                              marginTop: "0.75rem",
-                              background:
-                                "linear-gradient(135deg, #f97316, #ea580c)",
-                              color: "#fff",
-                              textDecoration: "none",
-                              padding: "0.65rem 1.5rem",
-                              borderRadius: 10,
-                              fontFamily: "'Fraunces', serif",
-                              fontWeight: 700,
-                              fontSize: "0.85rem",
-                              boxShadow: "0 4px 16px rgba(249,115,22,0.3)",
-                            }}
-                          >
-                            🗺 Open Full Map & Get Directions →
-                          </a>
-                        </>
-                      ) : (
-                        <p
-                          style={{
-                            fontSize: "0.81rem",
-                            color: "#a8a29e",
-                            fontStyle: "italic",
-                            background: "#fffaf6",
-                            borderRadius: 8,
-                            padding: "0.75rem 1rem",
-                            border: "1px solid #f0e9e1",
-                          }}
-                        >
-                          No location provided. Go back and enter a city/address
-                          to see the hospital map.
-                        </p>
-                      )}
-                    </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-
-              {/* New diagnosis */}
-              <motion.button
-                onClick={handleReset}
-                whileHover={{ scale: 1.01 }}
-                whileTap={{ scale: 0.98 }}
-                style={{
-                  width: "100%",
-                  padding: "0.78rem",
-                  background: "transparent",
-                  border: "1.5px solid #e8ddd2",
-                  borderRadius: 12,
-                  color: "#78716c",
-                  fontFamily: "'DM Sans', sans-serif",
-                  fontSize: "0.875rem",
-                  fontWeight: 500,
-                  cursor: "pointer",
-                  transition: "border-color 0.2s, color 0.2s",
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.borderColor = "#f97316";
-                  e.currentTarget.style.color = "#f97316";
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.borderColor = "#e8ddd2";
-                  e.currentTarget.style.color = "#78716c";
-                }}
-              >
-                ← New Diagnosis
-              </motion.button>
-            </motion.div>
+              result={result}
+              positive={positive}
+              symptomCount={symptomCount}
+              form={form}
+              confPct={confPct}
+              negProb={negProb}
+              posProb={posProb}
+              location={location}
+              mapUrl={mapUrl}
+              mapHref={mapHref}
+              handleReset={handleReset}
+              pageVariants={PAGE_VARIANTS}
+            />
           )}
         </AnimatePresence>
 
-        {/* Footer */}
-        <Footer></Footer>
+        {/* ── Footer ── */}
+        <Footer />
       </div>
     </div>
   );
