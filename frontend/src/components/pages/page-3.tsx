@@ -23,6 +23,7 @@ type Props = Readonly<{
   location: string;
   mapUrl: string;
   mapHref: string;
+  contactMailHref: string;
   handleReset: () => void;
   pageVariants: any;
 }>;
@@ -224,6 +225,72 @@ const styles = {
     cursor: "pointer",
     transition: "border-color 0.2s, color 0.2s",
   } as React.CSSProperties,
+
+  // Contact card
+  contactCard: {
+    background: "rgba(255,255,255,0.65)",
+    border: "1.5px solid #f0e9e1",
+    borderRadius: 14,
+    padding: "1rem 1.1rem",
+    marginBottom: "0.875rem",
+  } as React.CSSProperties,
+
+  contactTitle: {
+    fontSize: "0.67rem",
+    fontWeight: 700,
+    letterSpacing: "0.14em",
+    textTransform: "uppercase" as const,
+    color: "#a8a29e",
+    marginBottom: "0.75rem",
+  } as React.CSSProperties,
+
+  contactRow: {
+    display: "flex",
+    alignItems: "center",
+    gap: "0.6rem",
+    marginBottom: "0.5rem",
+  } as React.CSSProperties,
+
+  contactIcon: {
+    width: 30,
+    height: 30,
+    borderRadius: 8,
+    background: "rgba(249,115,22,0.08)",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    fontSize: "0.85rem",
+    flexShrink: 0,
+  } as React.CSSProperties,
+
+  contactLabel: {
+    fontSize: "0.7rem",
+    fontWeight: 600,
+    color: "#a8a29e",
+    marginBottom: "0.1rem",
+  } as React.CSSProperties,
+
+  contactValue: {
+    fontSize: "0.82rem",
+    fontWeight: 500,
+    color: "#1c1917",
+    textDecoration: "none",
+  } as React.CSSProperties,
+
+  contactEmailBtn: {
+    display: "block",
+    marginTop: "0.85rem",
+    textAlign: "center" as const,
+    background: `linear-gradient(135deg, ${ORANGE}, ${ORANGE_DARK})`,
+    color: "#fff",
+    textDecoration: "none",
+    padding: "0.6rem 1.25rem",
+    borderRadius: 10,
+    fontSize: "0.8rem",
+    fontWeight: 700,
+    boxShadow: "0 4px 14px rgba(249,115,22,0.28)",
+    letterSpacing: "0.01em",
+  } as React.CSSProperties,
 } as const;
 
 // ─── Animation Variants ───────────────────────────────────────────────────────
@@ -282,11 +349,11 @@ function HospitalMap({
   location,
   mapUrl,
   mapHref,
-}: {
+}: Readonly<{
   location: string;
   mapUrl: string;
   mapHref: string;
-}) {
+}>) {
   return (
     <AnimatePresence>
       <motion.div {...MAP_VARIANTS} style={styles.mapCardWrapper}>
@@ -332,6 +399,46 @@ function HospitalMap({
   );
 }
 
+function ContactCard({ mailHref }: { mailHref: string }) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: 0.5, duration: 0.35 }}
+      style={styles.contactCard}
+    >
+      <p style={styles.contactTitle}>Contact NMEP</p>
+
+      {/* Phone */}
+      <div style={styles.contactRow}>
+        <div style={styles.contactIcon}>📞</div>
+        <div>
+          <p style={styles.contactLabel}>Phone</p>
+          <a href="tel:+23496712135" style={styles.contactValue}>
+            +234 9 671 2135
+          </a>
+        </div>
+      </div>
+
+      {/* Email */}
+      <div style={styles.contactRow}>
+        <div style={styles.contactIcon}>✉️</div>
+        <div>
+          <p style={styles.contactLabel}>Email</p>
+          <a href={`mailto:info@nmep.gov.ng`} style={styles.contactValue}>
+            info@nmep.gov.ng
+          </a>
+        </div>
+      </div>
+
+      {/* Send report CTA */}
+      <a href={mailHref} style={styles.contactEmailBtn}>
+        📋 Send Diagnosis Report via Email →
+      </a>
+    </motion.div>
+  );
+}
+
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 export default function Page3({
@@ -344,6 +451,7 @@ export default function Page3({
   location,
   mapUrl,
   mapHref,
+  contactMailHref,
   handleReset,
   pageVariants,
 }: Props) {
@@ -417,6 +525,9 @@ export default function Page3({
       {positive && (
         <HospitalMap location={location} mapUrl={mapUrl} mapHref={mapHref} />
       )}
+
+      {/* ── Contact Card ── */}
+      <ContactCard mailHref={contactMailHref} />
 
       {/* ── Reset Button ── */}
       <motion.button
