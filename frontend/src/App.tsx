@@ -13,10 +13,7 @@ import Page3 from "./components/pages/page-3";
 
 type Step = "demographics" | "symptoms" | "result";
 
-type TooltipPosition = {
-  top: number;
-  left: number;
-};
+
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -160,7 +157,7 @@ function buildContactMailHref(
 
   const subject = `MalariaDx Report - ${positive ? "Positive" : "Negative"} (Confidence: ${confPct.toFixed(1)}%)`;
 
-  return `mailto:info@nmep.gov.ng?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+  return `https://mail.google.com/mail/?view=cm&fs=1&to=info@nmep.gov.ng&su=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
 }
 
 // ─── Style Constants ──────────────────────────────────────────────────────────
