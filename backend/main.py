@@ -11,7 +11,7 @@ app = FastAPI(title="Malaria Diagnosis API")
 # CORS (allow frontend access)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["https://malaria-diagnosis-detection-g3begh8mv-success007ts-projects.vercel.app"],  # This onelater restrict to our frontend domain
+    allow_origins=["https://.*\.vercel\.app"],
     allow_methods=["*"],
     allow_headers=["*"],
 )
