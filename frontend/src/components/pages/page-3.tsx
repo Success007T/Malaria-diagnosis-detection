@@ -12,7 +12,7 @@ type PatientMeta = {
   sex: number;
 };
 
-type Props = Readonly<{
+type Props = {
   result: any;
   positive: boolean;
   symptomCount: number;
@@ -26,7 +26,7 @@ type Props = Readonly<{
   contactMailHref: string;
   handleReset: () => void;
   pageVariants: any;
-}>;
+};
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -349,11 +349,11 @@ function HospitalMap({
   location,
   mapUrl,
   mapHref,
-}: Readonly<{
+}: {
   location: string;
   mapUrl: string;
   mapHref: string;
-}>) {
+}) {
   return (
     <AnimatePresence>
       <motion.div {...MAP_VARIANTS} style={styles.mapCardWrapper}>
@@ -432,9 +432,12 @@ function ContactCard({ mailHref }: { mailHref: string }) {
       </div>
 
       {/* Send report CTA */}
-      <a href={mailHref} style={styles.contactEmailBtn}>
+      <button
+        onClick={() => window.open(mailHref, "_blank")}
+        style={styles.contactEmailBtn}
+      >
         📋 Send Diagnosis Report via Email →
-      </a>
+      </button>
     </motion.div>
   );
 }

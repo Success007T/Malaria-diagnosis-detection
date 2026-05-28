@@ -13,6 +13,10 @@ import Page3 from "./components/pages/page-3";
 
 type Step = "demographics" | "symptoms" | "result";
 
+type TooltipPosition = {
+  top: number;
+  left: number;
+};
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -118,33 +122,32 @@ function countSymptoms(form: PatientData): number {
 }
 
 /** Builds a mailto: link pre-filled with the patient's diagnosis report. */
-/** Builds a mailto: link pre-filled with the patient's diagnosis report. */
 function buildContactMailHref(
   form: PatientData,
   positive: boolean,
   confPct: number,
 ): string {
   const selectedSymptoms = SYMPTOMS.filter((s) => form[s.key] === 1)
-    .map((s) => `  - ${s.label}`)   // was  •  now  -
+    .map((s) => `  - ${s.label}`)
     .join("\n");
 
   const ageGroup = Number(form.age) <= 18 ? "Pediatric" : "Adult";
   const sex = form.sex === 0 ? "Female" : "Male";
-  const diagnosis = positive ? "POSITIVE — Malaria Detected" : "NEGATIVE — No Malaria Detected";
+  const diagnosis = positive ? "POSITIVE - Malaria Detected" : "NEGATIVE - No Malaria Detected";
 
   const body = [
     "Dear NMEP,",
     "",
     "Please find below a MalariaDx AI diagnosis report for your review.",
     "",
-    "--- Patient Information ---",   // was  ── ... ──
+    "--- Patient Information ---",
     `Age Group : ${ageGroup}`,
     `Sex       : ${sex}`,
     "",
-    "--- Presenting Symptoms ---",   // was  ── ... ──
+    "--- Presenting Symptoms ---",
     selectedSymptoms || "  None selected",
     "",
-    "--- Diagnosis Result ---",      // was  ── ... ──
+    "--- Diagnosis Result ---",
     `Result    : ${diagnosis}`,
     `Confidence: ${confPct.toFixed(1)}%`,
     "",
@@ -156,7 +159,6 @@ function buildContactMailHref(
   ].join("\n");
 
   const subject = `MalariaDx Report - ${positive ? "Positive" : "Negative"} (Confidence: ${confPct.toFixed(1)}%)`;
-  //                              was  —  now  -
 
   return `mailto:info@nmep.gov.ng?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
 }
