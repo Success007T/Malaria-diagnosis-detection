@@ -13,10 +13,6 @@ import Page3 from "./components/pages/page-3";
 
 type Step = "demographics" | "symptoms" | "result";
 
-type TooltipPosition = {
-  top: number;
-  left: number;
-};
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
